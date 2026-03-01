@@ -1,0 +1,48 @@
+stages:
+
+  data_ingestion:
+    cmd: python src/data/data_ingestion.py
+    deps:
+      - src/data/data_ingestion.py
+    params:
+      - data_ingestion.test_size
+    outs:
+      - data/raw:
+          cache: false
+
+
+  data_preprocessing:
+    cmd: python src/data/data_preprocessing.py
+    deps:
+      - data/raw/train.csv
+      - data/raw/test.csv
+      - src/data/data_preprocessing.py
+    outs:
+      - data/interim:
+          cache: false
+
+
+  model_building:
+    cmd: python src/model/model_building.py
+    deps:
+      - data/interim/train_processed.csv
+      - src/model/model_building.py
+      - params.yaml
+    params:
+      - vectorizer.max_features
+      - vectorizer.ngram_range
+      - stacking.cv
+      - stacking.base_models.gradient_boosting.n_estimators
+      - stacking.base_models.gradient_boosting.learning_rate
+      - stacking.base_models.gradient_boosting.max_depth
+      - stacking.base_models.catboost.depth
+      - stacking.base_models.catboost.learning_rate
+      - stacking.base_models.catboost.iterations
+      - stacking.base_models.logistic.C
+      - stacking.base_models.naive_bayes.alpha
+      - stacking.final_estimator.C
+    outs:
+      - stacking_model.pkl:
+          cache: false
+      - tfidf_vectorizer.pkl:
+          cache: false

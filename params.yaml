@@ -1,0 +1,30 @@
+data_ingestion:
+  test_size: 0.20
+
+vectorizer:
+  max_features: 1000
+  ngram_range: [1, 3]
+
+stacking:
+  cv: 5
+
+  base_models:
+
+    gradient_boosting:
+      n_estimators: 468
+      learning_rate: 0.13066502758540927
+      max_depth: 3
+
+    catboost:
+      depth: 8
+      learning_rate: 0.27035817720878363
+      iterations: 587
+
+    logistic:
+      C: 2.9007777401612693
+
+    naive_bayes:
+      alpha: 0.0030594497271337812
+
+  final_estimator:
+    C: 2.9007777401612693
