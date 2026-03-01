@@ -1,0 +1,4 @@
+{
+    "run_id": "32bae46f54324c5bb0b4fbde38b3fa6e",
+    "model_path": "s3://mlflow-tracking-bucket26/13/32bae46f54324c5bb0b4fbde38b3fa6e/artifacts/stacking_model"
+}

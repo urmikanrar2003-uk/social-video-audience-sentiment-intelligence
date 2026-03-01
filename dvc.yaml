@@ -46,3 +46,17 @@ stages:
           cache: false
       - tfidf_vectorizer.pkl:
           cache: false
+  model_evaluation:
+    cmd: python src/model/model_evaluation.py
+    deps:
+      - src/model/model_evaluation.py
+      - stacking_model.pkl
+      - tfidf_vectorizer.pkl
+      - data/interim/test_processed.csv
+      - params.yaml
+    params:
+      - vectorizer
+      - stacking
+    outs:
+      - experiment_info.json:
+          cache: false

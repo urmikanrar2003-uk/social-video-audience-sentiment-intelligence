@@ -50,8 +50,8 @@ stages:
       size: 496
     - path: src/model/model_building.py
       hash: md5
-      md5: 7e329258f4230c8fbbd142dfc102a314
-      size: 6344
+      md5: 321830a52b14eec26f526383a48a3e7e
+      size: 6473
     params:
       params.yaml:
         stacking.base_models.catboost.depth: 8
@@ -72,9 +72,61 @@ stages:
     outs:
     - path: stacking_model.pkl
       hash: md5
-      md5: 716e544162873efd5413596ee2ff023c
-      size: 6663977
+      md5: f42fee23806728083fd7a4c23b12a01a
+      size: 6640728
     - path: tfidf_vectorizer.pkl
       hash: md5
       md5: 3210a27227a6043230203e68da92fa08
       size: 36954
+  model_evaluation:
+    cmd: python src/model/model_evaluation.py
+    deps:
+    - path: data/interim/test_processed.csv
+      hash: md5
+      md5: 4652018689864310a5a12e6d6e2cb3d3
+      size: 108587
+    - path: params.yaml
+      hash: md5
+      md5: 9150b8eafea2e3f8d4d23120093101d3
+      size: 496
+    - path: src/model/model_evaluation.py
+      hash: md5
+      md5: f9e3027575072e770dc8da04ee66f5b9
+      size: 7397
+    - path: stacking_model.pkl
+      hash: md5
+      md5: f42fee23806728083fd7a4c23b12a01a
+      size: 6640728
+    - path: tfidf_vectorizer.pkl
+      hash: md5
+      md5: 3210a27227a6043230203e68da92fa08
+      size: 36954
+    params:
+      params.yaml:
+        stacking:
+          cv: 5
+          base_models:
+            gradient_boosting:
+              n_estimators: 468
+              learning_rate: 0.13066502758540927
+              max_depth: 3
+            catboost:
+              depth: 8
+              learning_rate: 0.27035817720878363
+              iterations: 587
+            logistic:
+              C: 2.9007777401612693
+            naive_bayes:
+              alpha: 0.0030594497271337812
+          final_estimator:
+            C: 2.9007777401612693
+        vectorizer:
+          max_features: 1000
+          ngram_range:
+          - 1
+          - 3
+    outs:
+    - path: experiment_info.json
+      hash: md5
+      md5: 7843fd16ce3af27106db1b0b6df06c17
+      size: 167

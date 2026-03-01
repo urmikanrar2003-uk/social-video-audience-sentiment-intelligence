@@ -11,6 +11,11 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import MultinomialNB
 from catboost import CatBoostClassifier
 
+import random
+
+np.random.seed(42)
+random.seed(42)
+
 
 # ---------------- LOGGING ---------------- #
 
@@ -113,20 +118,23 @@ def train_stacking(X_train, y_train, params):
             ("gb", GradientBoostingClassifier(
                 n_estimators=gb_params["n_estimators"],
                 learning_rate=gb_params["learning_rate"],
-                max_depth=gb_params["max_depth"]
+                max_depth=gb_params["max_depth"],
+                random_state=42
             )),
             ("cb", CatBoostClassifier(
                 depth=cb_params["depth"],
                 learning_rate=cb_params["learning_rate"],
                 iterations=cb_params["iterations"],
-                verbose=0
+                verbose=0,
+                random_state=42
             )),
             ("lr", LogisticRegression(
                 C=lr_params["C"],
-                max_iter=1000
+                max_iter=1000,
+                random_state=42
             )),
             ("nb", MultinomialNB(
-                alpha=nb_params["alpha"]
+                alpha=nb_params["alpha"],
             ))
         ]
 
@@ -140,7 +148,6 @@ def train_stacking(X_train, y_train, params):
             final_estimator=final_estimator,
             cv=params["stacking"]["cv"],
             n_jobs=-1,
-            passthrough=True
         )
 
         stacking_model.fit(X_train, y_train)
