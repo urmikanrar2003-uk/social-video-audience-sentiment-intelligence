@@ -85,7 +85,7 @@ def evaluate_model(model, X_test: np.ndarray, y_test: np.ndarray):
         # Predict and calculate classification metrics
         y_pred = model.predict(X_test)
         report = classification_report(y_test, y_pred, output_dict=True)
-        cm = confusion_matrix(y_test, y_pred)
+        cm = confusion_matrix(y_test, y_pred,labels=[-1, 0, 1])
         
         logger.debug('Model evaluation completed')
 
@@ -98,7 +98,8 @@ def evaluate_model(model, X_test: np.ndarray, y_test: np.ndarray):
 def log_confusion_matrix(cm, dataset_name):
     """Log confusion matrix as an artifact."""
     plt.figure(figsize=(8, 6))
-    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',xticklabels=["negative", "neutral", "positive"],
+    yticklabels=["negative", "neutral", "positive"])
     plt.title(f'Confusion Matrix for {dataset_name}')
     plt.xlabel('Predicted')
     plt.ylabel('Actual')

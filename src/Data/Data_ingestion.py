@@ -65,13 +65,6 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
         # Removing rows with empty strings
         df = df[df['Comment'].str.strip() != '']
 
-        # Encoding sentiment column
-        df['sentiment_encoded'] = df['sentiment'].map({
-            'neutral': 0,
-            'positive': 1,
-            'negative': -1
-        })
-
         logger.debug('Data preprocessing completed: Missing values, duplicates, empty strings removed and sentiment encoded.')
         
         return df
@@ -110,10 +103,11 @@ def main():
         # Load data 
         data_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)),
-        '../../labeled_comments.csv'
+        '../../youtube_preprocessing.csv'
         )
 
         df = load_data(data_url=data_path)
+
         
         # Preprocess the data
         final_df = preprocess_data(df)
