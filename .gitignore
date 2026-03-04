@@ -207,3 +207,18 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+distilbert_model/
+
+*.bin
+*.pt
+.dvc/cache/
+
+# Large data files
+dataset.csv
+
+# Catboost training artifacts
+catboost_info/
+
+# DVC internals
+.dvc/tmp/
+.dvc/plots/

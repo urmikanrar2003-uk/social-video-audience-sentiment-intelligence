@@ -1,32 +1,32 @@
-import numpy as np
-import pandas as pd
 import os
-import pickle
-import yaml
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+os.environ["CUDA_VISIBLE_DEVICES"] = ""
+import torch
 import logging
+import yaml
+import pandas as pd
+import numpy as np
+import torch
 
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.ensemble import GradientBoostingClassifier, StackingClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.naive_bayes import MultinomialNB
-from catboost import CatBoostClassifier
-
-import random
-
-np.random.seed(42)
-random.seed(42)
-
+from transformers import (
+    AutoTokenizer,
+    AutoModelForSequenceClassification,
+    Trainer,
+    TrainingArguments
+)
+from sklearn.metrics import accuracy_score, precision_recall_fscore_support
+from datasets import Dataset
 
 # ---------------- LOGGING ---------------- #
 
 logger = logging.getLogger('model_building')
-logger.setLevel('DEBUG')
+logger.setLevel(logging.DEBUG)
 
 console_handler = logging.StreamHandler()
-console_handler.setLevel('DEBUG')
+console_handler.setLevel(logging.DEBUG)
 
 file_handler = logging.FileHandler('model_building_errors.log')
-file_handler.setLevel('ERROR')
+file_handler.setLevel(logging.ERROR)
 
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 console_handler.setFormatter(formatter)
@@ -39,35 +39,17 @@ logger.addHandler(file_handler)
 # ---------------- UTIL FUNCTIONS ---------------- #
 
 def load_params(params_path: str) -> dict:
-    try:
-        with open(params_path, 'r') as file:
-            params = yaml.safe_load(file)
-        logger.debug("Parameters loaded successfully from %s", params_path)
-        return params
-    except FileNotFoundError:
-        logger.error("Params file not found at %s", params_path)
-        raise
-    except yaml.YAMLError as e:
-        logger.error("YAML parsing error: %s", e)
-        raise
-    except Exception as e:
-        logger.error("Unexpected error while loading params: %s", e)
-        raise
-
+    with open(params_path, 'r') as file:
+        params = yaml.safe_load(file)
+    logger.debug("Parameters loaded successfully from %s", params_path)
+    return params
 
 
 def load_data(file_path: str) -> pd.DataFrame:
-    try:
-        df = pd.read_csv(file_path)
-        df.fillna('', inplace=True)
-        logger.debug("Data loaded successfully from %s", file_path)
-        return df
-    except pd.errors.ParserError as e:
-        logger.error("CSV parsing error: %s", e)
-        raise
-    except Exception as e:
-        logger.error("Unexpected error while loading data: %s", e)
-        raise
+    df = pd.read_csv(file_path)
+    df.fillna('', inplace=True)
+    logger.debug("Data loaded successfully from %s", file_path)
+    return df
 
 
 def get_root_directory() -> str:
@@ -75,100 +57,92 @@ def get_root_directory() -> str:
     return os.path.abspath(os.path.join(current_dir, '../../'))
 
 
-def apply_tfidf(train_data: pd.DataFrame, max_features: int, ngram_range: tuple):
-    try:
-        vectorizer = TfidfVectorizer(
-            max_features=max_features,
-            ngram_range=ngram_range,
+# ---------------- METRICS ---------------- #
+
+def compute_metrics(eval_pred):
+    logits, labels = eval_pred
+    predictions = np.argmax(logits, axis=1)
+
+    precision, recall, f1, _ = precision_recall_fscore_support(
+        labels, predictions, average="macro"
+    )
+    acc = accuracy_score(labels, predictions)
+
+    return {
+        "accuracy": acc,
+        "precision_macro": precision,
+        "recall_macro": recall,
+        "f1_macro": f1,
+    }
+
+
+# ---------------- TRAINING ---------------- #
+
+def train_distilbert(train_df, test_df, params):
+
+    model_name = params["distilbert"]["model_name"]
+    num_labels = params["distilbert"]["num_labels"]
+    epochs = params["distilbert"]["num_train_epochs"]
+    lr = float(params["distilbert"]["learning_rate"])
+    batch_size = params["distilbert"]["batch_size"]
+    weight_decay = params["distilbert"]["weight_decay"]
+
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+    def tokenize_function(example):
+        return tokenizer(
+            example["Comment"],
+            padding="max_length",
+            truncation=True,
+            max_length=128
         )
 
-        X_train = train_data['Comment'].values
-        y_train = train_data['sentiment_encoded'].values
+    train_dataset = Dataset.from_pandas(train_df[["Comment", "sentiment_encoded"]])
+    test_dataset = Dataset.from_pandas(test_df[["Comment", "sentiment_encoded"]])
 
-        X_train_tfidf = vectorizer.fit_transform(X_train)
+    train_dataset = train_dataset.rename_column("sentiment_encoded", "labels")
+    test_dataset = test_dataset.rename_column("sentiment_encoded", "labels")
 
-        logger.debug("TF-IDF transformation complete. Shape: %s", X_train_tfidf.shape)
+    train_dataset = train_dataset.map(tokenize_function, batched=True)
+    test_dataset = test_dataset.map(tokenize_function, batched=True)
 
-        with open(os.path.join(get_root_directory(), 'tfidf_vectorizer.pkl'), 'wb') as f:
-            pickle.dump(vectorizer, f)
+    train_dataset.set_format("torch", columns=["input_ids", "attention_mask", "labels"])
+    test_dataset.set_format("torch", columns=["input_ids", "attention_mask", "labels"])
 
-        logger.debug("TF-IDF vectorizer saved successfully")
+    model = AutoModelForSequenceClassification.from_pretrained(
+        model_name,
+        num_labels=num_labels
+    )
 
-        return X_train_tfidf, y_train
+    training_args = TrainingArguments(
+        output_dir="./results",
+        num_train_epochs=epochs,
+        per_device_train_batch_size=batch_size,
+        per_device_eval_batch_size=batch_size,
+        learning_rate=lr,
+        weight_decay=weight_decay,
+        eval_strategy="epoch",
+        save_strategy="epoch",
+        load_best_model_at_end=True,
+        metric_for_best_model="f1_macro",
+        logging_steps=50
+    )
 
-    except KeyError as e:
-        logger.error("Column missing in dataset: %s", e)
-        raise
-    except Exception as e:
-        logger.error("Error during TF-IDF transformation: %s", e)
-        raise
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        train_dataset=train_dataset,
+        eval_dataset=test_dataset,
+        compute_metrics=compute_metrics
+    )
 
-# ---------------- STACKING TRAINING ---------------- #
+    logger.info("Starting DistilBERT training...")
+    trainer.train()
 
-def train_stacking(X_train, y_train, params):
-    try:
+    logger.info("Training completed successfully")
 
-        gb_params = params["stacking"]["base_models"]["gradient_boosting"]
-        cb_params = params["stacking"]["base_models"]["catboost"]
-        lr_params = params["stacking"]["base_models"]["logistic"]
-        nb_params = params["stacking"]["base_models"]["naive_bayes"]
-        final_params = params["stacking"]["final_estimator"]
+    return trainer
 
-        base_models = [
-            ("gb", GradientBoostingClassifier(
-                n_estimators=gb_params["n_estimators"],
-                learning_rate=gb_params["learning_rate"],
-                max_depth=gb_params["max_depth"],
-                random_state=42
-            )),
-            ("cb", CatBoostClassifier(
-                depth=cb_params["depth"],
-                learning_rate=cb_params["learning_rate"],
-                iterations=cb_params["iterations"],
-                verbose=0,
-                random_state=42
-            )),
-            ("lr", LogisticRegression(
-                C=lr_params["C"],
-                max_iter=1000,
-                random_state=42
-            )),
-            ("nb", MultinomialNB(
-                alpha=nb_params["alpha"],
-            ))
-        ]
-
-        final_estimator = LogisticRegression(
-            C=final_params["C"],
-            max_iter=1000
-        )
-
-        stacking_model = StackingClassifier(
-            estimators=base_models,
-            final_estimator=final_estimator,
-            cv=params["stacking"]["cv"],
-            n_jobs=-1,
-        )
-
-        stacking_model.fit(X_train, y_train)
-
-        logger.debug("Stacking model training completed")
-        return stacking_model
-    except KeyError as e:
-        logger.error("Missing parameter in YAML file: %s", e)
-        raise
-    except Exception as e:
-        logger.error("Error during stacking model training: %s", e)
-        raise
-
-def save_model(model, file_path: str):
-    try:
-        with open(file_path, 'wb') as file:
-            pickle.dump(model, file)
-        logger.debug("Model saved successfully at %s", file_path)
-    except Exception as e:
-        logger.error("Error while saving model: %s", e)
-        raise
 
 # ---------------- MAIN ---------------- #
 
@@ -178,36 +152,31 @@ def main():
 
         params = load_params(os.path.join(root_dir, 'params.yaml'))
 
-        max_features = params['vectorizer']['max_features']
-        ngram_range = tuple(params['vectorizer']['ngram_range'])
-
         train_data = load_data(
             os.path.join(root_dir, 'data/interim/train_processed.csv')
         )
 
-        X_train_tfidf, y_train = apply_tfidf(
-            train_data,
-            max_features,
-            ngram_range
+        test_data = load_data(
+            os.path.join(root_dir, 'data/interim/test_processed.csv')
         )
 
-        stacking_model = train_stacking(X_train_tfidf, y_train, params)
+        trainer = train_distilbert(train_data, test_data, params)
 
-        save_model(
-            stacking_model,
-            os.path.join(root_dir, 'stacking_model.pkl')
-        )
+        # Save trained model
+        model_output_path = os.path.join(root_dir, "distilbert_model")
+        trainer.save_model(model_output_path)
 
-        logger.info("Model building pipeline completed successfully")
+        # --- SAVE TOKENIZER TOO --- #
+        model_name = params["distilbert"]["model_name"]
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        tokenizer.save_pretrained(model_output_path)
+
+        logger.info("DistilBERT model AND tokenizer saved successfully at %s", model_output_path)
 
     except Exception as e:
-        logger.critical(
-            "Model building pipeline failed: %s",
-            e
-        )
+        logger.critical("Model building pipeline failed: %s", e)
         print(f"Fatal Error: {e}")
 
-    
 
 if __name__ == '__main__':
     main()

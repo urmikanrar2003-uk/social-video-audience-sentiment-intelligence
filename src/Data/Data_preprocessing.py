@@ -1,13 +1,8 @@
 import numpy as np
 import pandas as pd
 import os
-import re
-import nltk
-import string
-from nltk.corpus import stopwords
-from nltk.stem import WordNetLemmatizer
 import logging
-
+import re
 
 # logging configuration
 logger = logging.getLogger('data_preprocessing')
@@ -25,99 +20,113 @@ file_handler.setFormatter(formatter)
 
 logger.addHandler(console_handler)
 logger.addHandler(file_handler)
+# ---------------- LABEL MAPPING ---------------- #
 
-
-# Download required NLTK data
-nltk.download('wordnet')
-nltk.download('stopwords')
-
-
-
-# Define the preprocessing function
-def preprocess_comment(comment):
-    """Apply preprocessing transformations to a comment."""
+def map_labels(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Map sentiment_encoded:
+    -1 -> 2
+     0 -> 0
+     1 -> 1
+    """
     try:
-        # Convert to lowercase
-        comment = comment.lower()
+        label_mapping = {-1: 2, 0: 0, 1: 1}
 
-        # Remove trailing and leading whitespaces
-        comment = comment.strip()
+        if 'sentiment_encoded' not in df.columns:
+            raise KeyError("Column 'sentiment_encoded' not found in dataframe.")
 
-        # Remove newline characters
-        comment = re.sub(r'\n', ' ', comment)
+        df['sentiment_encoded'] = df['sentiment_encoded'].map(label_mapping)
 
-        # Remove non-alphanumeric characters, except punctuation
-        comment = re.sub(r'[^A-Za-z0-9\s!?.,]', '', comment)
+        logger.debug("Label mapping applied successfully (-1→2, 0→0, 1→1)")
 
-        # Remove URLs 
-        comment = re.sub(r'http\S+|www\S+|https\S+', '', comment)
-
-
-        # Remove stopwords but retain important ones for sentiment analysis
-        stop_words = set(stopwords.words('english')) - {'not', 'but', 'however', 'no', 'yet'}
-        comment = ' '.join([word for word in comment.split() if word not in stop_words])
-
-        # Lemmatize the words
-        lemmatizer = WordNetLemmatizer()
-        comment = ' '.join([lemmatizer.lemmatize(word) for word in comment.split()])
-
-        return comment
-    except Exception as e:
-        logger.error(f"Error in preprocessing comment: {e}")
-        return comment
-    
-
-
-def normalize_text(df):
-    """Apply preprocessing to the text data in the dataframe."""
-    try:
-        df['Comment'] = df['Comment'].apply(preprocess_comment)
-        logger.debug('Text normalization completed')
         return df
     except Exception as e:
-        logger.error(f"Error during text normalization: {e}")
+        logger.error(f"Error during label mapping: {e}")
+        raise
+# ---------------- BASIC CLEANING ---------------- #
+
+def minimal_cleaning(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Minimal cleaning for transformer models:
+    - Drop NA
+    - Remove empty comments
+    - Remove URLs
+    - Normalize whitespace
+    - Remove newline characters
+    """
+    try:
+        df.dropna(inplace=True)
+
+        if 'Comment' not in df.columns:
+            raise KeyError("Column 'Comment' not found in dataframe.")
+
+        # Remove empty comments
+        df = df[df['Comment'].str.strip() != '']
+
+        # Apply light cleaning
+        def clean_text(comment):
+            comment = str(comment)
+            comment = comment.replace("\n", " ")
+            comment = re.sub(r'http\S+|www\S+|https\S+', '', comment)
+            comment = re.sub(r'\s+', ' ', comment).strip()
+            return comment
+
+        df['Comment'] = df['Comment'].apply(clean_text)
+
+        logger.debug("Minimal transformer-safe cleaning completed")
+
+        return df
+
+    except Exception as e:
+        logger.error(f"Error during minimal cleaning: {e}")
         raise
 
-
-
+# ---------------- SAVE DATA ---------------- #
 
 def save_data(train_data: pd.DataFrame, test_data: pd.DataFrame, data_path: str) -> None:
-    """Save the processed train and test datasets."""
     try:
         interim_data_path = os.path.join(data_path, 'interim')
-        logger.debug(f"Creating directory {interim_data_path}")
-        
-        os.makedirs(interim_data_path, exist_ok=True)  # Ensure the directory is created
-        logger.debug(f"Directory {interim_data_path} created or already exists")
+        os.makedirs(interim_data_path, exist_ok=True)
 
         train_data.to_csv(os.path.join(interim_data_path, "train_processed.csv"), index=False)
         test_data.to_csv(os.path.join(interim_data_path, "test_processed.csv"), index=False)
-        
+
         logger.debug(f"Processed data saved to {interim_data_path}")
+
     except Exception as e:
         logger.error(f"Error occurred while saving data: {e}")
         raise
 
 
+# ---------------- MAIN ---------------- #
 
 def main():
     try:
-        logger.debug("Starting data preprocessing...")
-        
-        # Fetch the data from data/raw
+        logger.debug("Starting data preprocessing for DistilBERT...")
+
+        # Load raw data
         train_data = pd.read_csv('./data/raw/train.csv')
         test_data = pd.read_csv('./data/raw/test.csv')
-        logger.debug('Data loaded successfully')
 
-        # Preprocess the data
-        train_processed_data = normalize_text(train_data)
-        test_processed_data = normalize_text(test_data)
+        logger.debug("Raw data loaded successfully")
 
-        # Save the processed data
-        save_data(train_processed_data, test_processed_data, data_path='./data')
+        # Minimal cleaning
+        train_data = minimal_cleaning(train_data)
+        test_data = minimal_cleaning(test_data)
+
+        # Apply label mapping
+        train_data = map_labels(train_data)
+        test_data = map_labels(test_data)
+
+        # Save processed data
+        save_data(train_data, test_data, data_path='./data')
+
+        logger.info("Data preprocessing pipeline completed successfully")
+
     except Exception as e:
         logger.error('Failed to complete the data preprocessing process: %s', e)
         print(f"Error: {e}")
+
 
 if __name__ == '__main__':
     main()
