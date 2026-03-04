@@ -219,6 +219,9 @@ dataset.csv
 # Catboost training artifacts
 catboost_info/
 
+# Model checkpoints
+results/
+
 # DVC internals
 .dvc/tmp/
 .dvc/plots/

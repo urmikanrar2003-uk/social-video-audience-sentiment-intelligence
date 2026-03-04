@@ -37,3 +37,10 @@ stages:
     outs:
       - experiment_info.json:
           cache: false
+
+  model_registration:
+    cmd: python src/Model/register_model.py
+    deps:
+      - src/Model/register_model.py
+      - experiment_info.json
+    
