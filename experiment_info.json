@@ -1,4 +1,4 @@
 {
-    "run_id": "0f73ec0d1f34455c825cb5f771c104c6",
-    "model_path": "s3://mlflow-tracking-bucket26/13/0f73ec0d1f34455c825cb5f771c104c6/artifacts/stacking_model"
+    "run_id": "3f55895687f24de3b12b46e86463427d",
+    "model_path": "s3://mlflow-tracking-bucket26/19/3f55895687f24de3b12b46e86463427d/artifacts/distilbert_model"
 }

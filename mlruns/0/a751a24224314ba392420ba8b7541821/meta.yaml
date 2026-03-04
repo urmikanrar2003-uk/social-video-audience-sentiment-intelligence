@@ -1,0 +1,15 @@
+artifact_uri: file:///D:/social%20video%20sentiment%20analysis/social-video-audience-sentiment-intelligence/mlruns/0/a751a24224314ba392420ba8b7541821/artifacts
+end_time: 1772535397593
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: a751a24224314ba392420ba8b7541821
+run_name: ./results
+run_uuid: a751a24224314ba392420ba8b7541821
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1772534784446
+status: 3
+tags: []
+user_id: Urmi Kanrar
