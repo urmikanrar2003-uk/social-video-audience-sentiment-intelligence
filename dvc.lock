@@ -7,9 +7,6 @@ stages:
       hash: md5
       md5: 7bfef94869a9e7883a66852e88c62ae1
       size: 4417
-    params:
-      params.yaml:
-        data_ingestion.test_size: 0.2
     outs:
     - path: data/raw
       hash: md5
@@ -19,114 +16,80 @@ stages:
   data_preprocessing:
     cmd: python src/data/data_preprocessing.py
     deps:
-    - path: data/raw/test.csv
+    - path: data/raw
       hash: md5
-      md5: 183617d970139c82254e93e518899fa9
-      size: 104885
-    - path: data/raw/train.csv
-      hash: md5
-      md5: 991007b7c864bc011b67667cfe93f159
-      size: 414218
+      md5: e716c2f73f97704d53f68e934b26cbe8.dir
+      size: 519103
+      nfiles: 2
     - path: src/data/data_preprocessing.py
       hash: md5
-      md5: d0b82627d34c47a904b16aef2bc6b585
-      size: 3931
+      md5: e56b1cc380716ab8b8a4f87541b58335
+      size: 3975
     outs:
-    - path: data/interim
+    - path: data/interim/test_processed.csv
       hash: md5
-      md5: 55446fb24462c6fc572e8c9485d94188.dir
-      size: 518592
-      nfiles: 2
-  model_building:
-    cmd: python src/model/model_building.py
-    deps:
+      md5: ba5d05f33af38f90bd1dd6a818da12bc
+      size: 104689
     - path: data/interim/train_processed.csv
       hash: md5
-      md5: a14b18d5afc3ca82d726dae1c859c73a
-      size: 413802
-    - path: params.yaml
-      hash: md5
-      md5: 9150b8eafea2e3f8d4d23120093101d3
-      size: 496
-    - path: src/model/model_building.py
-      hash: md5
-      md5: 5eb5d5abf3cdd4b78f16ff631795dcc0
-      size: 6474
-    params:
-      params.yaml:
-        stacking.base_models.catboost.depth: 8
-        stacking.base_models.catboost.iterations: 587
-        stacking.base_models.catboost.learning_rate: 0.27035817720878363
-        stacking.base_models.gradient_boosting.learning_rate: 
-          0.13066502758540927
-        stacking.base_models.gradient_boosting.max_depth: 3
-        stacking.base_models.gradient_boosting.n_estimators: 468
-        stacking.base_models.logistic.C: 2.9007777401612693
-        stacking.base_models.naive_bayes.alpha: 0.0030594497271337812
-        stacking.cv: 5
-        stacking.final_estimator.C: 2.9007777401612693
-        vectorizer.max_features: 1000
-        vectorizer.ngram_range:
-        - 1
-        - 3
-    outs:
-    - path: stacking_model.pkl
-      hash: md5
-      md5: ee39506d049922bab91fc1e1c28ebf94
-      size: 6655313
-    - path: tfidf_vectorizer.pkl
-      hash: md5
-      md5: e55288b91794681a3ec5498a1f1f60ee
-      size: 36971
-  model_evaluation:
-    cmd: python src/model/model_evaluation.py
+      md5: e7254d211f291f669c19cf7c62511394
+      size: 413371
+  model_building:
+    cmd: python src/Model/model_building.py
     deps:
     - path: data/interim/test_processed.csv
       hash: md5
-      md5: 20098292105e681a2e98f71e1560c43f
-      size: 104790
+      md5: ba5d05f33af38f90bd1dd6a818da12bc
+      size: 104689
+    - path: data/interim/train_processed.csv
+      hash: md5
+      md5: e7254d211f291f669c19cf7c62511394
+      size: 413371
     - path: params.yaml
       hash: md5
-      md5: 9150b8eafea2e3f8d4d23120093101d3
-      size: 496
-    - path: src/model/model_evaluation.py
+      md5: 54eee1d19e6207e465f3657701165945
+      size: 191
+    - path: src/Model/model_building.py
       hash: md5
-      md5: b73ddedd35145e3227bdd28c346ad22d
-      size: 7517
-    - path: stacking_model.pkl
+      md5: cdacfb89f3b807fce641f703fb95bd09
+      size: 5512
+    outs:
+    - path: distilbert_model
       hash: md5
-      md5: ee39506d049922bab91fc1e1c28ebf94
-      size: 6655313
-    - path: tfidf_vectorizer.pkl
+      md5: a74c72e38803e1efb4082fb11d8c67b4.dir
+      size: 268785847
+      nfiles: 7
+  model_evaluation:
+    cmd: python src/Model/model_evaluation.py
+    deps:
+    - path: data/interim/test_processed.csv
       hash: md5
-      md5: e55288b91794681a3ec5498a1f1f60ee
-      size: 36971
+      md5: ba5d05f33af38f90bd1dd6a818da12bc
+      size: 104689
+    - path: distilbert_model
+      hash: md5
+      md5: a74c72e38803e1efb4082fb11d8c67b4.dir
+      size: 268785847
+      nfiles: 7
+    - path: params.yaml
+      hash: md5
+      md5: 54eee1d19e6207e465f3657701165945
+      size: 191
+    - path: src/Model/model_evaluation.py
+      hash: md5
+      md5: 866509a58107254485b57faf539d8e1d
+      size: 5457
     params:
       params.yaml:
-        stacking:
-          cv: 5
-          base_models:
-            gradient_boosting:
-              n_estimators: 468
-              learning_rate: 0.13066502758540927
-              max_depth: 3
-            catboost:
-              depth: 8
-              learning_rate: 0.27035817720878363
-              iterations: 587
-            logistic:
-              C: 2.9007777401612693
-            naive_bayes:
-              alpha: 0.0030594497271337812
-          final_estimator:
-            C: 2.9007777401612693
-        vectorizer:
-          max_features: 1000
-          ngram_range:
-          - 1
-          - 3
+        distilbert:
+          model_name: distilbert-base-uncased
+          num_labels: 3
+          num_train_epochs: 3
+          learning_rate: 2e-05
+          batch_size: 16
+          weight_decay: 0.01
     outs:
     - path: experiment_info.json
       hash: md5
-      md5: 2eb0439be461be6adf4c3c48c5e7029a
-      size: 167
+      md5: e933f3bea38b000dd12895314b3f08f7
+      size: 169
